@@ -5,3 +5,8 @@ type UniversityEngine interface {
 	Authenticate(client *Client) error
 	RootURL() string
 }
+
+var EnginesByName map[string]UniversityEngine = map[string]UniversityEngine{
+	"uri":     URIEngine{},
+	"cornell": CornellEngine{},
+}
