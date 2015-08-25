@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-// A Client makes requests to the Cornell Student Center.
+// A Client makes requests to a University's Student Center.
 type Client struct {
 	client   http.Client
 	username string
