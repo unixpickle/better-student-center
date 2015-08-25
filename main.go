@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	c := bsc.NewClient("USERNAME", "PASSWORD", bsc.Cornell{})
+	c := bsc.NewClient("USERNAME", "PASSWORD", bsc.CornellEngine{})
 	fmt.Println(c.Authenticate())
 }
