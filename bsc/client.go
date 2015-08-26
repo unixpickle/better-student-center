@@ -2,9 +2,13 @@ package bsc
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 )
+
+var redirectionRejectedError = errors.New("a redirect occurred")
 
 // A Client makes requests to a University's Student Center.
 type Client struct {
@@ -18,7 +22,7 @@ type Client struct {
 // UniversityEngine.
 func NewClient(username, password string, uni UniversityEngine) *Client {
 	jar, _ := cookiejar.New(nil)
-	httpClient := http.Client{Jar: jar}
+	httpClient := http.Client{Jar: jar, CheckRedirect: rejectRedirect}
 	return &Client{httpClient, username, password, uni}
 }
 
@@ -44,30 +48,30 @@ func (c *Client) FetchCourses() ([]Course, error) {
 // re-authenticate if the session has timed out.
 func (c *Client) RequestPage(page string) (*http.Response, error) {
 	requestURL := c.uni.RootURL() + page
-	resp, err := http.Get(requestURL)
-	if err != nil {
+	resp, err := c.client.Get(requestURL)
+	if err != nil && !isRedirectError(err) {
 		return nil, err
-	} else if resp.Request.URL.String() == requestURL {
-		// NOTE: resp.Request will be different from the original request if a redirect occurred.
-		// TODO: figure out if there's a nicer way to check for a redirect, or to use a
-		// RoundTripper.
+	} else if err == nil {
 		return resp, nil
 	}
 
 	resp.Body.Close()
 
+	fmt.Println("reauthenticating..., url is", requestURL)
+
 	if err := c.Authenticate(); err != nil {
+		fmt.Println("reauthenticate failed", err)
 		return nil, err
 	}
 
-	resp, err = http.Get(requestURL)
+	fmt.Println("reauthenticated")
+
+	resp, err = c.client.Get(requestURL)
+	fmt.Println("got new error", err)
 	if err != nil {
 		return nil, err
-	} else if resp.Request.URL.String() == requestURL {
-		return resp, nil
 	} else {
-		resp.Body.Close()
-		return nil, errors.New("request redirected even after re-authentication")
+		return resp, nil
 	}
 }
 
@@ -90,4 +94,18 @@ func (c *Client) postGenericLoginForm(authPageURL string) (*http.Response, error
 	fields.Add(formInfo.passwordField, c.password)
 
 	return c.client.PostForm(formInfo.action, fields)
+}
+
+// isRedirectError returns true if an error is a redirectionRejectedError wrapped in url.Error.
+func isRedirectError(err error) bool {
+	if urlError, ok := err.(*url.Error); !ok {
+		return false
+	} else {
+		return urlError.Err == redirectionRejectedError
+	}
+}
+
+// rejectRedirect always returns an error.
+func rejectRedirect(_ *http.Request, _ []*http.Request) error {
+	return redirectionRejectedError
 }

@@ -14,6 +14,10 @@ func main() {
 		os.Exit(1)
 	}
 	c := bsc.NewClient(os.Getenv("BSC_TEST_USERNAME"), os.Getenv("BSC_TEST_PASSWORD"), engine)
+	if err := c.Authenticate(); err != nil {
+		fmt.Fprintln(os.Stderr, "Authentication failed:", err)
+		os.Exit(1)
+	}
 	courses, err := c.FetchCourses()
 	fmt.Println(courses, err)
 }
