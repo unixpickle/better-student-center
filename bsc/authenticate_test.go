@@ -6,11 +6,15 @@ import (
 	"testing"
 )
 
+var testOfflineOnly bool
 var testAuthUsername string
 var testAuthPassword string
 var testAuthEngine UniversityEngine
 
 func TestAuthenticate(t *testing.T) {
+	if testOfflineOnly {
+		t.Skip("Offline tests do not cover authentication.")
+	}
 	badClient := NewClient(testAuthUsername, testAuthPassword+"POOP", testAuthEngine)
 	if badClient.Authenticate() == nil {
 		t.Error("Bad credentials returned successful result.")
@@ -22,6 +26,11 @@ func TestAuthenticate(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	if os.Getenv("BSC_TEST_OFFLINE") != "" {
+		testOfflineOnly = true
+		os.Exit(m.Run())
+	}
+
 	testAuthUsername = os.Getenv("BSC_TEST_USERNAME")
 	if testAuthUsername == "" {
 		showTestEnvVarHelp()
@@ -42,6 +51,7 @@ func TestMain(m *testing.M) {
 
 func showTestEnvVarHelp() {
 	fmt.Fprintln(os.Stderr, "You must set the BSC_TEST_USERNAME, BSC_TEST_PASSWORD, and "+
-		"BSC_TEST_UNIVERSITY enivorment variables before running these tests.")
+		"BSC_TEST_UNIVERSITY enivorment variables before running these tests. Alternatively, "+
+		"set BSC_TEST_OFFLINE to a non-empty string to disable online testing.")
 	os.Exit(1)
 }
