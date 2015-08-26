@@ -29,11 +29,19 @@ func (_ CornellEngine) Authenticate(client *Client) error {
 		return errors.New("login incorrect")
 	}
 
-	// Follow the redirects so that we get all the cookies from all the domains.
-	// NOTE: I am cookie monster. Yummmm.
-	for isRedirectError(err) {
+	// Follow the first two redirects because they seem to be necessary for the authentication
+	// process.
+	for i := 0; i < 2; i++ {
 		location := res.Header.Get("Location")
 		res, err = client.client.Get(location)
+		if res != nil {
+			res.Body.Close()
+		}
+		if err == nil {
+			return errors.New("did not get an expected redirect")
+		} else if err != nil && !isRedirectError(err) {
+			return err
+		}
 	}
 	return nil
 }

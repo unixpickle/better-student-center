@@ -18,6 +18,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Authentication failed:", err)
 		os.Exit(1)
 	}
+	fmt.Println("Authenticated")
 	courses, err := c.FetchCourses()
 	fmt.Println(courses, err)
 }
