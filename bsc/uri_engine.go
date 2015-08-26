@@ -6,7 +6,7 @@ import (
 )
 
 var uriAuthURL string = "https://appsaprod.uri.edu:9503/psp/sahrprod_m2/?cmd=login&languageCd=ENG"
-var uriRootURL string = "https://appsaprod.uri.edu:9503/psc/sahrprod_m2/"
+var uriRootURL string = "https://appsaprod.uri.edu:9503/psc/sahrprod_m2"
 
 // URIEngine implements UniversityEngine for University of Rhode Island's eCampus
 type URIEngine struct{}

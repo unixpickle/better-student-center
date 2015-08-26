@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-var redirectionRejectedError = errors.New("a redirect occurred")
+var redirectionRejectedError = errors.New("redirect occurred")
 
 // A Client makes requests to a University's Student Center.
 type Client struct {

@@ -57,7 +57,7 @@ func parseGenericLoginForm(res *http.Response) (result *loginFormInfo, err error
 
 	htmlForm, ok := scrape.Find(root, scrape.ByTag(atom.Form))
 	if !ok {
-		return nil, errors.New("no <form> found")
+		return nil, errors.New("no form element found")
 	}
 
 	if actionStr := getNodeAttribute(htmlForm, "action"); actionStr == "" {

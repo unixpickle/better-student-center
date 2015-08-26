@@ -6,7 +6,7 @@ var cornellAuthURL string = "https://css.adminapps.cornell.edu/psc/cuselfservice
 	"EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSS_STUDENT_CENTER.GBL?" +
 	"&FolderPath=PORTAL_ROOT_OBJECT.CO_EMPLOYEE_SELF_SERVICE.HC_" +
 	"SSS_STUDENT_CENTER&IsFolder=false"
-var cornellRootURL string = "https://css.adminapps.cornell.edu/psc/cuselfservice/"
+var cornellRootURL string = "https://css.adminapps.cornell.edu/psc/cuselfservice"
 
 // CornellEngine implements UniversityEngine for Cornell University's Student Center.
 type CornellEngine struct{}

@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-var enrolledCoursesPath string = "EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
+var enrolledCoursesPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
 	"?Page=SSR_SSENRL_LIST"
 
 // A ComponentType represents the type of a Component. This may be, for example,
