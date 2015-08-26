@@ -14,6 +14,9 @@ type CornellEngine struct{}
 // Authenticate uses the CUWebLogin page to get a session.
 func (_ CornellEngine) Authenticate(client *Client) error {
 	res, err := client.client.Get(cornellAuthURL)
+	if res != nil {
+		res.Body.Close()
+	}
 	if err == nil || !isRedirectError(err) {
 		return errors.New("login page did not redirect")
 	}
