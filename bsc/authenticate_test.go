@@ -13,15 +13,15 @@ var testAuthEngine UniversityEngine
 
 func TestAuthenticate(t *testing.T) {
 	if testOfflineOnly {
-		t.Skip("Offline tests do not cover authentication.")
+		t.Skip("offline tests do not cover authentication.")
 	}
 	badClient := NewClient(testAuthUsername, testAuthPassword+"POOP", testAuthEngine)
 	if badClient.Authenticate() == nil {
-		t.Error("Bad credentials returned successful result.")
+		t.Error("bad credentials returned successful result.")
 	}
 	goodClient := NewClient(testAuthUsername, testAuthPassword, testAuthEngine)
 	if err := goodClient.Authenticate(); err != nil {
-		t.Error("Login failed:", err)
+		t.Error("login failed:", err)
 	}
 }
 
@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 	}
 	engineName := os.Getenv("BSC_TEST_UNIVERSITY")
 	if engine, ok := EnginesByName[engineName]; !ok {
-		fmt.Fprintln(os.Stderr, "Unknown university: "+engineName)
+		fmt.Fprintln(os.Stderr, "unknown University: "+engineName)
 		os.Exit(1)
 	} else {
 		testAuthEngine = engine

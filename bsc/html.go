@@ -1,6 +1,7 @@
 package bsc
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"net/url"
@@ -20,6 +21,17 @@ func getNodeAttribute(node *html.Node, attribute string) string {
 		}
 	}
 	return ""
+}
+
+func nodeInnerText(node *html.Node) string {
+	if node.Type == html.TextNode {
+		return node.Data
+	}
+	var res bytes.Buffer
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		res.WriteString(nodeInnerText(child))
+	}
+	return res.String()
 }
 
 type loginFormInfo struct {

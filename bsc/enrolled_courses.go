@@ -2,9 +2,13 @@ package bsc
 
 import (
 	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yhat/scrape"
+	"golang.org/x/net/html"
 )
 
 var enrolledCoursesPath string = "EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
@@ -83,6 +87,35 @@ type Course struct {
 	Units      float64
 	Graded     bool
 	Sections   []Section
+}
+
+// ParseCourses parses the class schedule list view.
+func ParseCourses(page io.Reader) ([]Course, error) {
+	nodes, err := html.ParseFragment(page, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(nodes) != 1 {
+		return nil, errors.New("invalid number of root elements")
+	}
+
+	courseTables := scrape.FindAll(nodes[0], scrape.ByClass("PSGROUPBOXWBO"))
+	result := make([]Course, 0, len(courseTables))
+	for _, classTable := range courseTables {
+		var course Course
+		if titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER")); !ok {
+			// This will occur at least once, since the filter options are a PSGROUPBOXWBO.
+			continue
+		} else {
+			course.Name = nodeInnerText(titleElement)
+		}
+
+		// TODO: parse the rest of the information here. All we have so far is the name.
+
+		result = append(result, course)
+	}
+
+	return result, nil
 }
 
 // Times represents the weekly meeting times of a given section.

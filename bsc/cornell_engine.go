@@ -15,6 +15,7 @@ func (_ CornellEngine) Authenticate(client *Client) error {
 		return err
 	}
 	res.Body.Close()
+
 	if res.Request.URL.Path == "/loginAction" {
 		return errors.New("login incorrect")
 	} else {

@@ -1,6 +1,7 @@
 package bsc
 
 import (
+	"errors"
 	"net/http"
 	"net/http/cookiejar"
 )
@@ -27,6 +28,47 @@ func NewClient(username, password string, uni UniversityEngine) *Client {
 // called after the first request fails.
 func (c *Client) Authenticate() error {
 	return c.uni.Authenticate(c)
+}
+
+// FetchCourses downloads the user's current course list.
+func (c *Client) FetchCourses() ([]Course, error) {
+	if resp, err := c.RequestPage(enrolledCoursesPath); err != nil {
+		return nil, err
+	} else {
+		defer resp.Body.Close()
+		return ParseCourses(resp.Body)
+	}
+}
+
+// RequestPage requests a page relative to the PeopleSoft root. This will automatically
+// re-authenticate if the session has timed out.
+func (c *Client) RequestPage(page string) (*http.Response, error) {
+	requestURL := c.uni.RootURL() + page
+	resp, err := http.Get(requestURL)
+	if err != nil {
+		return nil, err
+	} else if resp.Request.URL.String() == requestURL {
+		// NOTE: resp.Request will be different from the original request if a redirect occurred.
+		// TODO: figure out if there's a nicer way to check for a redirect, or to use a
+		// RoundTripper.
+		return resp, nil
+	}
+
+	resp.Body.Close()
+
+	if err := c.Authenticate(); err != nil {
+		return nil, err
+	}
+
+	resp, err = http.Get(requestURL)
+	if err != nil {
+		return nil, err
+	} else if resp.Request.URL.String() == requestURL {
+		return resp, nil
+	} else {
+		resp.Body.Close()
+		return nil, errors.New("request redirected even after re-authentication")
+	}
 }
 
 // postGenericLoginForm uses parseGenericLoginForm on the given page and POSTs the username and
