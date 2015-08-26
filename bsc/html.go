@@ -36,7 +36,7 @@ func parseGenericLoginForm(res *http.Response) (result *loginFormInfo, err error
 	if err != nil {
 		return
 	} else if len(parsed) != 1 {
-		return nil, errors.New("Wrong number of root elements.")
+		return nil, errors.New("wrong number of root elements")
 	}
 
 	root := parsed[0]
@@ -45,7 +45,7 @@ func parseGenericLoginForm(res *http.Response) (result *loginFormInfo, err error
 
 	htmlForm, ok := scrape.Find(root, scrape.ByTag(atom.Form))
 	if !ok {
-		return nil, errors.New("No <form> found.")
+		return nil, errors.New("no <form> found")
 	}
 
 	if actionStr := getNodeAttribute(htmlForm, "action"); actionStr == "" {
@@ -82,9 +82,9 @@ func parseGenericLoginForm(res *http.Response) (result *loginFormInfo, err error
 	}
 
 	if form.usernameField == "" {
-		return nil, errors.New("No username field found.")
+		return nil, errors.New("no username field found")
 	} else if form.passwordField == "" {
-		return nil, errors.New("No password field found.")
+		return nil, errors.New("no password field found")
 	}
 
 	return &form, nil

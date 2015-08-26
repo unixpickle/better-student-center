@@ -16,7 +16,7 @@ func (_ URIEngine) Authenticate(client *Client) error {
 	}
 	res.Body.Close()
 	if res.Request.URL.Query().Get("errorCode") != "" {
-		return errors.New("Login incorrect.")
+		return errors.New("login incorrect")
 	} else {
 		return nil
 	}

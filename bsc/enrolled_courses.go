@@ -27,9 +27,9 @@ type TimeOfDay int
 // For example, this would turn 11:30AM into TimeOfDay(11*60 + 30) = TimeOfDay(690).
 func ParseTimeOfDay(s string) (TimeOfDay, error) {
 	if len(s) < 6 {
-		return 0, errors.New("Time is too short: " + s)
+		return 0, errors.New("time is too short: " + s)
 	} else if len(s) > 7 {
-		return 0, errors.New("Time is too long: " + s)
+		return 0, errors.New("time is too long: " + s)
 	}
 
 	meridiemOffset := 0
@@ -37,11 +37,11 @@ func ParseTimeOfDay(s string) (TimeOfDay, error) {
 	if lastTwoLetters == "PM" {
 		meridiemOffset = 12 * 60
 	} else if lastTwoLetters != "AM" {
-		return 0, errors.New("Time must end with AM or PM: " + s)
+		return 0, errors.New("time must end with AM or PM: " + s)
 	}
 
 	if s[len(s)-5] != ':' {
-		return 0, errors.New("Time missing a ':' at the correct spot: " + s)
+		return 0, errors.New("time missing a ':' at the correct spot: " + s)
 	}
 
 	minuteStr := s[len(s)-4 : len(s)-2]
@@ -96,10 +96,10 @@ type WeeklyTimes struct {
 func ParseWeeklyTimes(times string) (*WeeklyTimes, error) {
 	comps := strings.Split(times, " ")
 	if len(comps) != 4 {
-		return nil, errors.New("Invalid weekly times: " + times)
+		return nil, errors.New("invalid weekly times: " + times)
 	}
 	if comps[2] != "-" {
-		return nil, errors.New("Missing separating dash: " + times)
+		return nil, errors.New("missing separating dash: " + times)
 	}
 
 	start, err := ParseTimeOfDay(comps[1])
@@ -132,7 +132,7 @@ type Section struct {
 
 func parseWeekdays(weekdays string) ([]time.Weekday, error) {
 	if len(weekdays)%2 != 0 {
-		return nil, errors.New("Weekdays have invalid length: " + weekdays)
+		return nil, errors.New("weekdays have invalid length: " + weekdays)
 	}
 	nameToWeekday := map[string]time.Weekday{
 		"Mo": time.Monday,
@@ -147,7 +147,7 @@ func parseWeekdays(weekdays string) ([]time.Weekday, error) {
 		if weekday, ok := nameToWeekday[str]; ok {
 			res[i/2] = weekday
 		} else {
-			return nil, errors.New("Invalid weekdays: " + weekdays)
+			return nil, errors.New("invalid weekdays: " + weekdays)
 		}
 	}
 	return res, nil
