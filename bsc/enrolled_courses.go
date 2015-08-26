@@ -14,8 +14,8 @@ import (
 var enrolledCoursesPath string = "EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
 	"?Page=SSR_SSENRL_LIST"
 
-// A ComponentType represents the type of a section. This may be, for example, ComponentTypeLecture
-// or ComponentTypeDiscussion.
+// A ComponentType represents the type of a Component. This may be, for example,
+// ComponentTypeLecture or ComponentTypeDiscussion.
 type ComponentType int
 
 const (
@@ -86,7 +86,7 @@ type Course struct {
 	Enrolled   bool
 	Units      float64
 	Graded     bool
-	Sections   []Section
+	Components []Component
 }
 
 // ParseCourses parses the class schedule list view.
@@ -151,8 +151,9 @@ func ParseWeeklyTimes(times string) (*WeeklyTimes, error) {
 	return &WeeklyTimes{days, start, end}, nil
 }
 
-// A Section is one component of a course. Sections have meeting times, locations, and instructors.
-type Section struct {
+// A Component is one component of a course. Components have meeting times, locations, and
+// instructors.
+type Component struct {
 	ClassNumber int
 	Number      int
 	Type        ComponentType
