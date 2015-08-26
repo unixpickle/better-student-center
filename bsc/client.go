@@ -2,7 +2,6 @@ package bsc
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -57,17 +56,11 @@ func (c *Client) RequestPage(page string) (*http.Response, error) {
 
 	resp.Body.Close()
 
-	fmt.Println("reauthenticating..., url is", requestURL)
-
 	if err := c.Authenticate(); err != nil {
-		fmt.Println("reauthenticate failed", err)
 		return nil, err
 	}
 
-	fmt.Println("reauthenticated")
-
 	resp, err = c.client.Get(requestURL)
-	fmt.Println("got new error", err)
 	if err != nil {
 		return nil, err
 	} else {
