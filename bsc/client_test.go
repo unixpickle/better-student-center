@@ -13,15 +13,30 @@ var testAuthEngine UniversityEngine
 
 func TestAuthenticate(t *testing.T) {
 	if testOfflineOnly {
-		t.Skip("offline tests do not cover authentication.")
+		t.Skip("offline tests do not cover authentication")
 	}
 	badClient := NewClient(testAuthUsername, testAuthPassword+"POOP", testAuthEngine)
 	if badClient.Authenticate() == nil {
-		t.Error("bad credentials returned successful result.")
+		t.Error("bad credentials returned successful result")
 	}
 	goodClient := NewClient(testAuthUsername, testAuthPassword, testAuthEngine)
 	if err := goodClient.Authenticate(); err != nil {
 		t.Error("login failed:", err)
+	}
+}
+
+func TestFetchCourses(t *testing.T) {
+	if testOfflineOnly {
+		t.Skip("offline tests do not cover course fetching")
+	}
+	c := NewClient(testAuthUsername, testAuthPassword, testAuthEngine)
+	if err := c.Authenticate(); err != nil {
+		t.Fatal("could not authenticate:", err)
+	}
+	if courses, err := c.FetchCourses(); err != nil {
+		t.Error("failed to fetch courses:", err)
+	} else if courses == nil || len(courses) == 0 {
+		t.Error("course list is empty or nil")
 	}
 }
 
