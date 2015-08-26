@@ -10,7 +10,7 @@ type URIEngine struct{}
 
 // Authenticate uses URI's e-campus login page to get a session.
 func (_ URIEngine) Authenticate(client *Client) error {
-	res, err := client.postGenericLoginForm(cornellAuthURL)
+	res, err := client.postGenericLoginForm(uriAuthURL)
 	if err != nil {
 		return err
 	}
