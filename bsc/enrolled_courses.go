@@ -21,6 +21,7 @@ type ComponentType int
 const (
 	ComponentTypeLecture ComponentType = iota
 	ComponentTypeDiscussion
+	ComponentTypeLab
 	ComponentTypeOther
 )
 
@@ -101,6 +102,29 @@ func (t TimeOfDay) Minute() int {
 	return int(t) % 60
 }
 
+// String returns a human-readable, 12-hour version of this time.
+func (t TimeOfDay) String() string {
+	hour := t.Hour()
+	minute := t.Minute()
+	amPmStr := "AM"
+	if hour >= 12 {
+		amPmStr = "PM"
+	}
+
+	if hour == 0 {
+		hour = 12
+	} else if hour > 12 {
+		hour -= 12
+	}
+
+	minuteStr := strconv.Itoa(minute)
+	if len(minuteStr) == 1 {
+		minuteStr = "0" + minuteStr
+	}
+
+	return strconv.Itoa(hour) + ":" + minuteStr + amPmStr
+}
+
 // A Course represents a single course in which the user is enrolled.
 // A course may contain multiple sections. For example, it could have a Lecture and a Discussion.
 type Course struct {
@@ -125,15 +149,11 @@ func ParseCourses(page io.Reader) ([]Course, error) {
 	courseTables := scrape.FindAll(nodes[0], scrape.ByClass("PSGROUPBOXWBO"))
 	result := make([]Course, 0, len(courseTables))
 	for _, classTable := range courseTables {
-		var course Course
 		titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER"))
 		if !ok {
 			// This will occur at least once, since the filter options are a PSGROUPBOXWBO.
 			continue
 		}
-
-		// NOTE: there isn't really a standard way to parse the department/number.
-		course.Name = nodeInnerText(titleElement)
 
 		infoTables := scrape.FindAll(classTable, scrape.ByClass("PSLEVEL3GRIDNBO"))
 		if len(infoTables) != 2 {
@@ -142,41 +162,103 @@ func ParseCourses(page io.Reader) ([]Course, error) {
 		}
 
 		courseInfoTable := infoTables[0]
-		courseInfoEntries, err := tableEntriesAsMaps(courseInfoTable)
+		course, err := parseCourseInfoTable(courseInfoTable)
 		if err != nil {
 			return nil, err
 		}
-		if len(courseInfoEntries) != 1 {
-			return nil, errors.New("expected exactly 1 row in the course info table but got " +
-				strconv.Itoa(len(courseInfoEntries)))
+
+		// NOTE: there isn't really a standard way to parse the department/number.
+		course.Name = nodeInnerText(titleElement)
+
+		componentsInfoTable := infoTables[1]
+		componentMaps, err := tableEntriesAsMaps(componentsInfoTable)
+		if err != nil {
+			return nil, err
 		}
-		courseInfoMap := courseInfoEntries[0]
-
-		// TODO: figure out how to use the "Graded" field in a universal way.
-
-		if unitsStr, ok := courseInfoMap["Units"]; ok {
-			course.Units, _ = strconv.ParseFloat(unitsStr, -1)
+		course.Components = make([]Component, len(componentMaps))
+		for i, componentMap := range componentMaps {
+			course.Components[i], err = parseComponentInfoMap(componentMap)
+			if err != nil {
+				return nil, err
+			}
 		}
-
-		// TODO: verify these Status strings and make sure there are no others.
-		switch courseInfoMap["Status"] {
-		case "Enrolled":
-			course.Status = EnrollmentStatusEnrolled
-		case "Dropped":
-			course.Status = EnrollmentStatusDropped
-		case "Waitlisted":
-			course.Status = EnrollmentStatusWaitlisted
-		default:
-			course.Status = EnrollmentStatusOther
-		}
-
-		// TODO: this.
-		// componentInfoTable := infoTables[1]
 
 		result = append(result, course)
 	}
 
 	return result, nil
+}
+
+func parseComponentInfoMap(infoMap map[string]string) (component Component, err error) {
+	component.ClassNumber, err = strconv.Atoi(infoMap["Class Nbr"])
+	if err != nil {
+		return
+	}
+
+	weeklyTimes, err := ParseWeeklyTimes(infoMap["Days & Times"])
+	if err != nil {
+		return
+	} else {
+		component.WeeklyTimes = *weeklyTimes
+	}
+
+	// TODO: parse start/end date.
+
+	component.Section = infoMap["Section"]
+	component.Room = infoMap["Room"]
+
+	component.Instructors = strings.Split(infoMap["Instructor"], ",")
+	for i, instructor := range component.Instructors {
+		component.Instructors[i] = strings.TrimSpace(instructor)
+	}
+
+	// TODO: see if there are more possible component types.
+	switch infoMap["Component"] {
+	case "Lecture":
+		component.Type = ComponentTypeLecture
+	case "Discussion":
+		component.Type = ComponentTypeDiscussion
+	case "Lab":
+		// TODO: see if this is a real component type.
+		component.Type = ComponentTypeLab
+	default:
+		component.Type = ComponentTypeOther
+	}
+
+	return
+}
+
+func parseCourseInfoTable(table *html.Node) (course Course, err error) {
+	infoMaps, err := tableEntriesAsMaps(table)
+	if err != nil {
+		return
+	}
+	if len(infoMaps) != 1 {
+		return course, errors.New("expected exactly 1 row in the course info table but got " +
+			strconv.Itoa(len(infoMaps)))
+	}
+	infoMap := infoMaps[0]
+
+	// TODO: figure out how to use the "Graded" field in a universal way. The string for this may
+	// differ between universities.
+
+	if unitsStr, ok := infoMap["Units"]; ok {
+		course.Units, _ = strconv.ParseFloat(unitsStr, -1)
+	}
+
+	// TODO: verify these Status strings and make sure there are no others.
+	switch infoMap["Status"] {
+	case "Enrolled":
+		course.Status = EnrollmentStatusEnrolled
+	case "Dropped":
+		course.Status = EnrollmentStatusDropped
+	case "Waitlisted":
+		course.Status = EnrollmentStatusWaitlisted
+	default:
+		course.Status = EnrollmentStatusOther
+	}
+
+	return
 }
 
 // Times represents the weekly meeting times of a given section.
@@ -216,7 +298,7 @@ func ParseWeeklyTimes(times string) (*WeeklyTimes, error) {
 // instructors.
 type Component struct {
 	ClassNumber int
-	Number      int
+	Section     string
 	Type        ComponentType
 	WeeklyTimes WeeklyTimes
 	Instructors []string
@@ -226,6 +308,7 @@ type Component struct {
 }
 
 func parseWeekdays(weekdays string) ([]time.Weekday, error) {
+	// TODO: move this func to a more appropriate place in the file.
 	if len(weekdays)%2 != 0 {
 		return nil, errors.New("weekdays have invalid length: " + weekdays)
 	}
