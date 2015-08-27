@@ -11,9 +11,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-var enrolledCoursesPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
-	"?Page=SSR_SSENRL_LIST"
-
 // A ComponentType represents the type of a Component. This may be, for example,
 // ComponentTypeLecture or ComponentTypeDiscussion.
 type ComponentType int
@@ -31,8 +28,8 @@ type EnrollmentStatus int
 // String returns a human-readable (i.e. English-speaker readable) version of the enrollment status.
 func (e EnrollmentStatus) String() string {
 	names := map[EnrollmentStatus]string{
-		EnrollmentStatusEnrolled: "Enrolled",
-		EnrollmentStatusDropped: "Dropped",
+		EnrollmentStatusEnrolled:   "Enrolled",
+		EnrollmentStatusDropped:    "Dropped",
 		EnrollmentStatusWaitlisted: "Waitlisted",
 	}
 	if name, ok := names[e]; ok {
@@ -189,45 +186,8 @@ func ParseCourses(page io.Reader) ([]Course, error) {
 	return result, nil
 }
 
-func parseComponentInfoMap(infoMap map[string]string) (component Component, err error) {
-	component.ClassNumber, err = strconv.Atoi(infoMap["Class Nbr"])
-	if err != nil {
-		return
-	}
-
-	weeklyTimes, err := ParseWeeklyTimes(infoMap["Days & Times"])
-	if err != nil {
-		return
-	} else {
-		component.WeeklyTimes = *weeklyTimes
-	}
-
-	// TODO: parse start/end date.
-
-	component.Section = infoMap["Section"]
-	component.Room = infoMap["Room"]
-
-	component.Instructors = strings.Split(infoMap["Instructor"], ",")
-	for i, instructor := range component.Instructors {
-		component.Instructors[i] = strings.TrimSpace(instructor)
-	}
-
-	// TODO: see if there are more possible component types.
-	switch infoMap["Component"] {
-	case "Lecture":
-		component.Type = ComponentTypeLecture
-	case "Discussion":
-		component.Type = ComponentTypeDiscussion
-	case "Lab":
-		// TODO: see if this is a real component type.
-		component.Type = ComponentTypeLab
-	default:
-		component.Type = ComponentTypeOther
-	}
-
-	return
-}
-
+// parseCourseInfoTable takes a table with general course fields and turns it into a Course. This
+// will not fill in certain fields (i.e. the components and name of the course).
 func parseCourseInfoTable(table *html.Node) (course Course, err error) {
 	infoMaps, err := tableEntriesAsMaps(table)
 	if err != nil {
@@ -294,21 +254,8 @@ func ParseWeeklyTimes(times string) (*WeeklyTimes, error) {
 	return &WeeklyTimes{days, start, end}, nil
 }
 
-// A Component is one component of a course. Components have meeting times, locations, and
-// instructors.
-type Component struct {
-	ClassNumber int
-	Section     string
-	Type        ComponentType
-	WeeklyTimes WeeklyTimes
-	Instructors []string
-	Room        string
-	StartDate   time.Time
-	EndDate     time.Time
-}
-
+// parseWeekdays parses a string like "MoWeFr" and turns it into an ordered list of weekdays.
 func parseWeekdays(weekdays string) ([]time.Weekday, error) {
-	// TODO: move this func to a more appropriate place in the file.
 	if len(weekdays)%2 != 0 {
 		return nil, errors.New("weekdays have invalid length: " + weekdays)
 	}
@@ -329,4 +276,58 @@ func parseWeekdays(weekdays string) ([]time.Weekday, error) {
 		}
 	}
 	return res, nil
+}
+
+// A Component is one component of a course. Components have meeting times, locations, and
+// instructors.
+type Component struct {
+	ClassNumber int
+	Section     string
+	Type        ComponentType
+	WeeklyTimes WeeklyTimes
+	Instructors []string
+	Room        string
+	StartDate   time.Time
+	EndDate     time.Time
+}
+
+// parseComponentInfoMap processes a row from a courses's components and returns a Component with
+// all the available information.
+func parseComponentInfoMap(infoMap map[string]string) (component Component, err error) {
+	component.ClassNumber, err = strconv.Atoi(infoMap["Class Nbr"])
+	if err != nil {
+		return
+	}
+
+	weeklyTimes, err := ParseWeeklyTimes(infoMap["Days & Times"])
+	if err != nil {
+		return
+	} else {
+		component.WeeklyTimes = *weeklyTimes
+	}
+
+	// TODO: parse start/end date.
+
+	component.Section = infoMap["Section"]
+	component.Room = infoMap["Room"]
+
+	component.Instructors = strings.Split(infoMap["Instructor"], ",")
+	for i, instructor := range component.Instructors {
+		component.Instructors[i] = strings.TrimSpace(instructor)
+	}
+
+	// TODO: see if there are more possible component types.
+	switch infoMap["Component"] {
+	case "Lecture":
+		component.Type = ComponentTypeLecture
+	case "Discussion":
+		component.Type = ComponentTypeDiscussion
+	case "Lab":
+		// TODO: see if this is a real component type.
+		component.Type = ComponentTypeLab
+	default:
+		component.Type = ComponentTypeOther
+	}
+
+	return
 }

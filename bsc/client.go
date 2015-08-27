@@ -9,6 +9,8 @@ import (
 )
 
 var redirectionRejectedError = errors.New("redirect occurred")
+var courseListViewPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
+	"?Page=SSR_SSENRL_LIST"
 
 // A Client makes requests to a University's Student Center.
 type Client struct {
@@ -42,7 +44,7 @@ func (c *Client) Authenticate() error {
 
 // FetchCourses downloads the user's current course list.
 func (c *Client) FetchCourses() ([]Course, error) {
-	if resp, err := c.RequestPage(enrolledCoursesPath); err != nil {
+	if resp, err := c.RequestPage(courseListViewPath); err != nil {
 		return nil, err
 	} else {
 		defer resp.Body.Close()
