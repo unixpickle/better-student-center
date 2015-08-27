@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
 
 	"github.com/yhat/scrape"
 	"golang.org/x/net/html"
@@ -82,7 +83,7 @@ func (t TimeOfDay) Minute() int {
 type Course struct {
 	Name       string
 	Department string
-	Number     int
+	Number     string
 	Enrolled   bool
 	Units      float64
 	Graded     bool
@@ -103,14 +104,27 @@ func ParseCourses(page io.Reader) ([]Course, error) {
 	result := make([]Course, 0, len(courseTables))
 	for _, classTable := range courseTables {
 		var course Course
-		if titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER")); !ok {
+		titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER"))
+		if !ok {
 			// This will occur at least once, since the filter options are a PSGROUPBOXWBO.
 			continue
-		} else {
-			course.Name = nodeInnerText(titleElement)
 		}
 
-		// TODO: parse the rest of the information here. All we have so far is the name.
+		course.Name = nodeInnerText(titleElement)
+		// There isn't really a standard way to parse the department/number
+
+		// The course table is broken into 2 sub-tables
+		// The first contains info about the class itself
+		// The second contains info about the components you're enrolled in
+		courseData := scrape.FindAll(classTable, scrape.ByClass("PSLEVEL3GRIDNBO"))
+		if len(classData) != 2 {
+			fmt.Println("invalid PSLEVEL3GRIDNBO data")
+			continue
+		}
+
+		// TODO: continue parsing
+		// courseDataInfo := classData[0]
+		// courseDataComponents := classData[1]
 
 		result = append(result, course)
 	}
