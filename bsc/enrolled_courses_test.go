@@ -50,6 +50,20 @@ func TestParseWeeklyTimes(t *testing.T) {
 	}
 }
 
+func TestTimeOfDayString(t *testing.T) {
+	times := []string{"2:30AM", "2:05AM", "12:30AM", "12:30PM", "1:30PM"}
+	for _, timeStr := range times {
+		parsed, err := ParseTimeOfDay(timeStr)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		if parsed.String() != timeStr {
+			t.Error("incorrect string for: " + timeStr)
+		}
+	}
+}
+
 func testWeeklyTimes(t *testing.T, str string, expect WeeklyTimes) {
 	parsed, err := ParseWeeklyTimes(str)
 	if err != nil {
