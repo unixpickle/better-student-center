@@ -10,8 +10,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-// ParseCurrentSchedule parses the courses from the schedule list view page.
-func ParseCurrentSchedule(page io.Reader) ([]Course, error) {
+// parseCurrentSchedule parses the courses from the schedule list view page.
+func parseCurrentSchedule(page io.Reader) ([]Course, error) {
 	nodes, err := html.ParseFragment(page, nil)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,17 @@ func parseComponentInfoMap(infoMap map[string]string) (component Component, err 
 		component.WeeklyTimes = *weeklyTimes
 	}
 
-	// TODO: parse start/end date.
+	startEndComps := strings.Split(infoMap["Start/End Date"], " - ")
+	if len(startEndComps) != 2 {
+		err = errors.New("invalid start/end date: " + infoMap["Start/End Date"])
+		return
+	}
+	if component.StartDate, err = ParseDate(startEndComps[0]); err != nil {
+		return
+	}
+	if component.EndDate, err = ParseDate(startEndComps[1]); err != nil {
+		return
+	}
 
 	component.Section = infoMap["Section"]
 	component.Room = infoMap["Room"]

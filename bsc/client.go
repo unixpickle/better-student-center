@@ -48,7 +48,7 @@ func (c *Client) FetchCurrentSchedule() ([]Course, error) {
 		return nil, err
 	} else {
 		defer resp.Body.Close()
-		return ParseCurrentSchedule(resp.Body)
+		return parseCurrentSchedule(resp.Body)
 	}
 }
 

@@ -27,8 +27,8 @@ type Component struct {
 	WeeklyTimes WeeklyTimes
 	Instructors []string
 	Room        string
-	StartDate   time.Time
-	EndDate     time.Time
+	StartDate   Date
+	EndDate     Date
 }
 
 // A ComponentType represents the type of a Component. This may be, for example,
@@ -45,6 +45,7 @@ const (
 // ParseComponentType turns a human-readable component type into a ComponentType. Unrecognized
 // strings are treated as ComponentTypeOther.
 func ParseComponentType(str string) ComponentType {
+	// TODO: see if there are other component types, and that "Lab" is a thing.
 	mapping := map[string]ComponentType{
 		"Lecture":    ComponentTypeLecture,
 		"Discussion": ComponentTypeDiscussion,
@@ -242,4 +243,51 @@ func (t TimeOfDay) String() string {
 	}
 
 	return strconv.Itoa(hour) + ":" + minuteStr + amPmStr
+}
+
+// Date represents a day, given by a month, a day, and a year.
+// The day starts at 1 to reflect the standard way of writing calendar dates.
+type Date struct {
+	Month time.Month
+	Day   int
+	Year  int
+}
+
+// ParseDate parses a slash-separated date string such as "05/08/2015".
+func ParseDate(dateStr string) (date Date, err error) {
+	comps := strings.Split(dateStr, "/")
+	if len(comps) != 3 {
+		return date, errors.New("string does not contain exactly two slashes: " + dateStr)
+	}
+	monthNum, err := strconv.Atoi(comps[0])
+	if err != nil {
+		return
+	}
+	date.Month = time.Month(monthNum)
+
+	date.Day, err = strconv.Atoi(comps[1])
+	if err != nil {
+		return
+	}
+
+	date.Year, err = strconv.Atoi(comps[2])
+	if err != nil {
+		return
+	}
+	return
+}
+
+// String generates a slash-separated date string. It uses two digits for month and day, prepending
+// zeroes as necessary.
+func (d Date) String() string {
+	monthStr := strconv.Itoa(int(d.Month))
+	dayStr := strconv.Itoa(d.Day)
+	yearStr := strconv.Itoa(d.Year)
+	if len(dayStr) == 1 {
+		dayStr = "0" + dayStr
+	}
+	if len(monthStr) == 1 {
+		monthStr = "0" + monthStr
+	}
+	return monthStr + "/" + dayStr + "/" + yearStr
 }
