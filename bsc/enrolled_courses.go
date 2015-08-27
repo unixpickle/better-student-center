@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"fmt"
 
 	"github.com/yhat/scrape"
 	"golang.org/x/net/html"
@@ -110,21 +109,37 @@ func ParseCourses(page io.Reader) ([]Course, error) {
 			continue
 		}
 
+		// NOTE: there isn't really a standard way to parse the department/number.
 		course.Name = nodeInnerText(titleElement)
-		// There isn't really a standard way to parse the department/number
 
-		// The course table is broken into 2 sub-tables
-		// The first contains info about the class itself
-		// The second contains info about the components you're enrolled in
-		courseData := scrape.FindAll(classTable, scrape.ByClass("PSLEVEL3GRIDNBO"))
-		if len(classData) != 2 {
-			fmt.Println("invalid PSLEVEL3GRIDNBO data")
-			continue
+		infoTables := scrape.FindAll(classTable, scrape.ByClass("PSLEVEL3GRIDNBO"))
+		if len(infoTables) != 2 {
+			return nil, errors.New("expected exactly 2 info tables but found " +
+				strconv.Itoa(len(infoTables)))
 		}
 
-		// TODO: continue parsing
-		// courseDataInfo := classData[0]
-		// courseDataComponents := classData[1]
+		courseInfoTable := infoTables[0]
+		courseInfoEntries, err := tableEntriesAsMaps(courseInfoTable)
+		if err != nil {
+			return nil, err
+		}
+		if len(courseInfoEntries) != 1 {
+			return nil, errors.New("expected exactly 1 row in the course info table but got " +
+				strconv.Itoa(len(courseInfoEntries)))
+		}
+		courseInfoMap := courseInfoEntries[0]
+
+		if unitsStr, ok := courseInfoMap["Units"]; ok {
+			course.Units, _ = strconv.ParseFloat(unitsStr, -1)
+		}
+
+		// TODO: figure out other Status values.
+		if courseInfoMap["Status"] == "Enrolled" {
+			course.Enrolled = true
+		}
+
+		// TODO: parse the components.
+		// componentInfoTable := infoTables[1]
 
 		result = append(result, course)
 	}

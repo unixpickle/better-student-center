@@ -34,6 +34,35 @@ func nodeInnerText(node *html.Node) string {
 	return res.String()
 }
 
+// tableEntriesAsMaps takes a <table> and parses its headers and row entries.
+// Often times, an HTML table has one row of headers followed by several rows of data. This method
+// uses the headers as map keys. It returns an array of map objects representing the rows of the
+// table, with the <th>'s as keys and their corresponding <td>'s as values.
+func tableEntriesAsMaps(table *html.Node) ([]map[string]string, error) {
+	headings := scrape.FindAll(table, scrape.ByTag(atom.Th))
+	cells := scrape.FindAll(table, scrape.ByTag(atom.Td))
+	if len(cells)%len(headings) != 0 {
+		return nil, errors.New("number of cells should be divisible by number of headings")
+	}
+
+	headingText := make([]string, len(headings))
+	for i, heading := range headings {
+		headingText[i] = strings.TrimSpace(nodeInnerText(heading))
+	}
+
+	maps := make([]map[string]string, len(cells)/len(headings))
+	for rowIndex := 0; rowIndex < len(maps); rowIndex++ {
+		row := map[string]string{}
+		maps[rowIndex] = row
+		for colIndex := 0; colIndex < len(headings); colIndex++ {
+			cellIndex := rowIndex*len(headings) + colIndex
+			row[headingText[colIndex]] = strings.TrimSpace(nodeInnerText(cells[cellIndex]))
+		}
+	}
+
+	return maps, nil
+}
+
 type loginFormInfo struct {
 	usernameField string
 	passwordField string

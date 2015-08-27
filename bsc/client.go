@@ -15,7 +15,7 @@ type Client struct {
 	// authLock ensures that no concurrent requests are made during the re-authentication process.
 	// It also ensures that the client does not authenticate more than once concurrently.
 	authLock sync.RWMutex
-	
+
 	client   http.Client
 	username string
 	password string
