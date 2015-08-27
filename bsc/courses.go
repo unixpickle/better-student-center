@@ -39,17 +39,21 @@ const (
 	ComponentTypeLecture ComponentType = iota
 	ComponentTypeDiscussion
 	ComponentTypeLab
+	ComponentTypeSeminar
+	ComponentTypeRecitation
 	ComponentTypeOther
 )
 
 // ParseComponentType turns a human-readable component type into a ComponentType. Unrecognized
 // strings are treated as ComponentTypeOther.
 func ParseComponentType(str string) ComponentType {
-	// TODO: see if there are other component types, and that "Lab" is a thing.
+	// TODO: see if there are other component types.
 	mapping := map[string]ComponentType{
 		"Lecture":    ComponentTypeLecture,
 		"Discussion": ComponentTypeDiscussion,
-		"Lab":        ComponentTypeLab,
+		"Laboratory": ComponentTypeLab,
+		"Seminar":    ComponentTypeSeminar,
+		"Recitation": ComponentTypeRecitation,
 	}
 	if ct, ok := mapping[str]; ok {
 		return ct
@@ -63,7 +67,9 @@ func (c ComponentType) String() string {
 	names := map[ComponentType]string{
 		ComponentTypeLecture:    "Lecture",
 		ComponentTypeDiscussion: "Discussion",
-		ComponentTypeLab:        "Lab",
+		ComponentTypeLab:        "Laboratory",
+		ComponentTypeSeminar:    "Seminar",
+		ComponentTypeRecitation: "Recitation",
 	}
 	if name, ok := names[c]; ok {
 		return name
