@@ -17,8 +17,10 @@ func (_ CornellEngine) Authenticate(client *Client) error {
 	if res != nil {
 		res.Body.Close()
 	}
-	if err == nil || !isRedirectError(err) {
+	if err == nil {
 		return errors.New("login page did not redirect")
+	} else if !isRedirectError(err) {
+		return err
 	}
 	fullURL := res.Header.Get("Location")
 

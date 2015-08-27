@@ -9,7 +9,7 @@ import (
 )
 
 var redirectionRejectedError = errors.New("redirect occurred")
-var courseListViewPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
+var scheduleListViewPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
 	"?Page=SSR_SSENRL_LIST"
 
 // A Client makes requests to a University's Student Center.
@@ -42,13 +42,13 @@ func (c *Client) Authenticate() error {
 	return c.uni.Authenticate(c)
 }
 
-// FetchCourses downloads the user's current course list.
-func (c *Client) FetchCourses() ([]Course, error) {
-	if resp, err := c.RequestPage(courseListViewPath); err != nil {
+// FetchCurrentSchedule downloads the user's current schedule.
+func (c *Client) FetchCurrentSchedule() ([]Course, error) {
+	if resp, err := c.RequestPage(scheduleListViewPath); err != nil {
 		return nil, err
 	} else {
 		defer resp.Body.Close()
-		return ParseCourses(resp.Body)
+		return ParseCurrentSchedule(resp.Body)
 	}
 }
 

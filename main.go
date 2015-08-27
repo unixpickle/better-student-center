@@ -10,7 +10,7 @@ import (
 func main() {
 	engine, ok := bsc.EnginesByName[os.Getenv("BSC_TEST_UNIVERSITY")]
 	if !ok {
-		fmt.Fprintln(os.Stderr, "Unknown university: " + os.Getenv("BSC_TEST_UNIVERSITY"))
+		fmt.Fprintln(os.Stderr, "Unknown university: "+os.Getenv("BSC_TEST_UNIVERSITY"))
 		os.Exit(1)
 	}
 	c := bsc.NewClient(os.Getenv("BSC_TEST_USERNAME"), os.Getenv("BSC_TEST_PASSWORD"), engine)
@@ -19,6 +19,6 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("Authenticated")
-	courses, err := c.FetchCourses()
+	courses, err := c.FetchCurrentSchedule()
 	fmt.Println(courses, err)
 }

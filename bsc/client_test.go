@@ -25,7 +25,7 @@ func TestAuthenticate(t *testing.T) {
 	}
 }
 
-func TestFetchCourses(t *testing.T) {
+func TestFetchCurrentSchedule(t *testing.T) {
 	if testOfflineOnly {
 		t.Skip("offline tests do not cover course fetching")
 	}
@@ -33,7 +33,7 @@ func TestFetchCourses(t *testing.T) {
 	if err := c.Authenticate(); err != nil {
 		t.Fatal("could not authenticate:", err)
 	}
-	if courses, err := c.FetchCourses(); err != nil {
+	if courses, err := c.FetchCurrentSchedule(); err != nil {
 		t.Error("failed to fetch courses:", err)
 	} else if courses == nil || len(courses) == 0 {
 		t.Error("course list is empty or nil")

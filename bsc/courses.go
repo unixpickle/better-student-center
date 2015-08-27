@@ -2,14 +2,34 @@ package bsc
 
 import (
 	"errors"
-	"io"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/yhat/scrape"
-	"golang.org/x/net/html"
 )
+
+// A Course represents a single course in which the user is enrolled.
+// A course may contain multiple sections. For example, it could have a Lecture and a Discussion.
+type Course struct {
+	Name       string
+	Department string
+	Number     string
+	Status     EnrollmentStatus
+	Units      float64
+	Components []Component
+}
+
+// A Component is one component of a course. Components have meeting times, locations, and
+// instructors.
+type Component struct {
+	ClassNumber int
+	Section     string
+	Type        ComponentType
+	WeeklyTimes WeeklyTimes
+	Instructors []string
+	Room        string
+	StartDate   time.Time
+	EndDate     time.Time
+}
 
 // A ComponentType represents the type of a Component. This may be, for example,
 // ComponentTypeLecture or ComponentTypeDiscussion.
@@ -22,8 +42,60 @@ const (
 	ComponentTypeOther
 )
 
+// ParseComponentType turns a human-readable component type into a ComponentType. Unrecognized
+// strings are treated as ComponentTypeOther.
+func ParseComponentType(str string) ComponentType {
+	mapping := map[string]ComponentType{
+		"Lecture":    ComponentTypeLecture,
+		"Discussion": ComponentTypeDiscussion,
+		"Lab":        ComponentTypeLab,
+	}
+	if ct, ok := mapping[str]; ok {
+		return ct
+	} else {
+		return ComponentTypeOther
+	}
+}
+
+// String generates a human-readable version of the ComponentType.
+func (c ComponentType) String() string {
+	names := map[ComponentType]string{
+		ComponentTypeLecture:    "Lecture",
+		ComponentTypeDiscussion: "Discussion",
+		ComponentTypeLab:        "Lab",
+	}
+	if name, ok := names[c]; ok {
+		return name
+	} else {
+		return "Other"
+	}
+}
+
 // EnrollmentStatus represents an enrollment status (e.g. dropped or enrolled) for a given course.
 type EnrollmentStatus int
+
+const (
+	EnrollmentStatusEnrolled EnrollmentStatus = iota
+	EnrollmentStatusDropped
+	EnrollmentStatusWaitlisted
+	EnrollmentStatusOther
+)
+
+// ParseEnrollmentStatus takes a human-readable string (e.g. "Enrolled") and turns it into an
+// Enrollment status. Unrecognized strings are treated as EnrollmentStatusOther.
+func ParseEnrollmentStatus(str string) EnrollmentStatus {
+	// TODO: see if there are other enrollment statuses, and if "Waitlisted" is the correct string.
+	mapping := map[string]EnrollmentStatus{
+		"Enrolled":   EnrollmentStatusEnrolled,
+		"Dropped":    EnrollmentStatusDropped,
+		"Waitlisted": EnrollmentStatusWaitlisted,
+	}
+	if es, ok := mapping[str]; ok {
+		return es
+	} else {
+		return EnrollmentStatusOther
+	}
+}
 
 // String returns a human-readable (i.e. English-speaker readable) version of the enrollment status.
 func (e EnrollmentStatus) String() string {
@@ -39,12 +111,62 @@ func (e EnrollmentStatus) String() string {
 	}
 }
 
-const (
-	EnrollmentStatusEnrolled EnrollmentStatus = iota
-	EnrollmentStatusDropped
-	EnrollmentStatusWaitlisted
-	EnrollmentStatusOther
-)
+// WeeklyTimes represents the weekly meeting times of a given section.
+type WeeklyTimes struct {
+	Days  []time.Weekday
+	Start TimeOfDay
+	End   TimeOfDay
+}
+
+// ParseWeeklyTimes parses a string like "MoWeFr 11:30AM - 12:30PM"
+func ParseWeeklyTimes(times string) (*WeeklyTimes, error) {
+	comps := strings.Split(times, " ")
+	if len(comps) != 4 {
+		return nil, errors.New("invalid weekly times: " + times)
+	}
+	if comps[2] != "-" {
+		return nil, errors.New("missing separating dash: " + times)
+	}
+
+	start, err := ParseTimeOfDay(comps[1])
+	if err != nil {
+		return nil, err
+	}
+	end, err := ParseTimeOfDay(comps[3])
+	if err != nil {
+		return nil, err
+	}
+	days, err := parseWeekdays(comps[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return &WeeklyTimes{days, start, end}, nil
+}
+
+// parseWeekdays parses a string like "MoWeFr" and turns it into an ordered list of weekdays.
+func parseWeekdays(weekdays string) ([]time.Weekday, error) {
+	if len(weekdays)%2 != 0 {
+		return nil, errors.New("weekdays have invalid length: " + weekdays)
+	}
+	nameToWeekday := map[string]time.Weekday{
+		"Mo": time.Monday,
+		"Tu": time.Tuesday,
+		"We": time.Wednesday,
+		"Th": time.Thursday,
+		"Fr": time.Friday,
+	}
+	res := make([]time.Weekday, len(weekdays)/2)
+	for i := 0; i < len(weekdays); i += 2 {
+		str := weekdays[i : i+2]
+		if weekday, ok := nameToWeekday[str]; ok {
+			res[i/2] = weekday
+		} else {
+			return nil, errors.New("invalid weekdays: " + weekdays)
+		}
+	}
+	return res, nil
+}
 
 // A TimeOfDay represents a time of day as a number of minutes since 0:00.
 type TimeOfDay int
@@ -120,214 +242,4 @@ func (t TimeOfDay) String() string {
 	}
 
 	return strconv.Itoa(hour) + ":" + minuteStr + amPmStr
-}
-
-// A Course represents a single course in which the user is enrolled.
-// A course may contain multiple sections. For example, it could have a Lecture and a Discussion.
-type Course struct {
-	Name       string
-	Department string
-	Number     string
-	Status     EnrollmentStatus
-	Units      float64
-	Components []Component
-}
-
-// ParseCourses parses the class schedule list view.
-func ParseCourses(page io.Reader) ([]Course, error) {
-	nodes, err := html.ParseFragment(page, nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(nodes) != 1 {
-		return nil, errors.New("invalid number of root elements")
-	}
-
-	courseTables := scrape.FindAll(nodes[0], scrape.ByClass("PSGROUPBOXWBO"))
-	result := make([]Course, 0, len(courseTables))
-	for _, classTable := range courseTables {
-		titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER"))
-		if !ok {
-			// This will occur at least once, since the filter options are a PSGROUPBOXWBO.
-			continue
-		}
-
-		infoTables := scrape.FindAll(classTable, scrape.ByClass("PSLEVEL3GRIDNBO"))
-		if len(infoTables) != 2 {
-			return nil, errors.New("expected exactly 2 info tables but found " +
-				strconv.Itoa(len(infoTables)))
-		}
-
-		courseInfoTable := infoTables[0]
-		course, err := parseCourseInfoTable(courseInfoTable)
-		if err != nil {
-			return nil, err
-		}
-
-		// NOTE: there isn't really a standard way to parse the department/number.
-		course.Name = nodeInnerText(titleElement)
-
-		componentsInfoTable := infoTables[1]
-		componentMaps, err := tableEntriesAsMaps(componentsInfoTable)
-		if err != nil {
-			return nil, err
-		}
-		course.Components = make([]Component, len(componentMaps))
-		for i, componentMap := range componentMaps {
-			course.Components[i], err = parseComponentInfoMap(componentMap)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		result = append(result, course)
-	}
-
-	return result, nil
-}
-
-// parseCourseInfoTable takes a table with general course fields and turns it into a Course. This
-// will not fill in certain fields (i.e. the components and name of the course).
-func parseCourseInfoTable(table *html.Node) (course Course, err error) {
-	infoMaps, err := tableEntriesAsMaps(table)
-	if err != nil {
-		return
-	}
-	if len(infoMaps) != 1 {
-		return course, errors.New("expected exactly 1 row in the course info table but got " +
-			strconv.Itoa(len(infoMaps)))
-	}
-	infoMap := infoMaps[0]
-
-	// TODO: figure out how to use the "Graded" field in a universal way. The string for this may
-	// differ between universities.
-
-	if unitsStr, ok := infoMap["Units"]; ok {
-		course.Units, _ = strconv.ParseFloat(unitsStr, -1)
-	}
-
-	// TODO: verify these Status strings and make sure there are no others.
-	switch infoMap["Status"] {
-	case "Enrolled":
-		course.Status = EnrollmentStatusEnrolled
-	case "Dropped":
-		course.Status = EnrollmentStatusDropped
-	case "Waitlisted":
-		course.Status = EnrollmentStatusWaitlisted
-	default:
-		course.Status = EnrollmentStatusOther
-	}
-
-	return
-}
-
-// Times represents the weekly meeting times of a given section.
-type WeeklyTimes struct {
-	Days  []time.Weekday
-	Start TimeOfDay
-	End   TimeOfDay
-}
-
-// ParseWeeklyTimes parses a string like "MoWeFr 11:30AM - 12:30PM"
-func ParseWeeklyTimes(times string) (*WeeklyTimes, error) {
-	comps := strings.Split(times, " ")
-	if len(comps) != 4 {
-		return nil, errors.New("invalid weekly times: " + times)
-	}
-	if comps[2] != "-" {
-		return nil, errors.New("missing separating dash: " + times)
-	}
-
-	start, err := ParseTimeOfDay(comps[1])
-	if err != nil {
-		return nil, err
-	}
-	end, err := ParseTimeOfDay(comps[3])
-	if err != nil {
-		return nil, err
-	}
-	days, err := parseWeekdays(comps[0])
-	if err != nil {
-		return nil, err
-	}
-
-	return &WeeklyTimes{days, start, end}, nil
-}
-
-// parseWeekdays parses a string like "MoWeFr" and turns it into an ordered list of weekdays.
-func parseWeekdays(weekdays string) ([]time.Weekday, error) {
-	if len(weekdays)%2 != 0 {
-		return nil, errors.New("weekdays have invalid length: " + weekdays)
-	}
-	nameToWeekday := map[string]time.Weekday{
-		"Mo": time.Monday,
-		"Tu": time.Tuesday,
-		"We": time.Wednesday,
-		"Th": time.Thursday,
-		"Fr": time.Friday,
-	}
-	res := make([]time.Weekday, len(weekdays)/2)
-	for i := 0; i < len(weekdays); i += 2 {
-		str := weekdays[i : i+2]
-		if weekday, ok := nameToWeekday[str]; ok {
-			res[i/2] = weekday
-		} else {
-			return nil, errors.New("invalid weekdays: " + weekdays)
-		}
-	}
-	return res, nil
-}
-
-// A Component is one component of a course. Components have meeting times, locations, and
-// instructors.
-type Component struct {
-	ClassNumber int
-	Section     string
-	Type        ComponentType
-	WeeklyTimes WeeklyTimes
-	Instructors []string
-	Room        string
-	StartDate   time.Time
-	EndDate     time.Time
-}
-
-// parseComponentInfoMap processes a row from a courses's components and returns a Component with
-// all the available information.
-func parseComponentInfoMap(infoMap map[string]string) (component Component, err error) {
-	component.ClassNumber, err = strconv.Atoi(infoMap["Class Nbr"])
-	if err != nil {
-		return
-	}
-
-	weeklyTimes, err := ParseWeeklyTimes(infoMap["Days & Times"])
-	if err != nil {
-		return
-	} else {
-		component.WeeklyTimes = *weeklyTimes
-	}
-
-	// TODO: parse start/end date.
-
-	component.Section = infoMap["Section"]
-	component.Room = infoMap["Room"]
-
-	component.Instructors = strings.Split(infoMap["Instructor"], ",")
-	for i, instructor := range component.Instructors {
-		component.Instructors[i] = strings.TrimSpace(instructor)
-	}
-
-	// TODO: see if there are more possible component types.
-	switch infoMap["Component"] {
-	case "Lecture":
-		component.Type = ComponentTypeLecture
-	case "Discussion":
-		component.Type = ComponentTypeDiscussion
-	case "Lab":
-		// TODO: see if this is a real component type.
-		component.Type = ComponentTypeLab
-	default:
-		component.Type = ComponentTypeOther
-	}
-
-	return
 }
