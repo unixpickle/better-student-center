@@ -19,6 +19,8 @@ func (_ URIEngine) Authenticate(client *Client) error {
 	res, err := client.client.Get(uriAuthURL)
 	if res != nil {
 		res.Body.Close()
+	} else {
+		return err
 	}
 
 	res, err = client.postGenericLoginForm(uriAuthURL)
