@@ -24,6 +24,30 @@ const (
 	ComponentTypeOther
 )
 
+// EnrollmentStatus represents an enrollment status (e.g. dropped or enrolled) for a given course.
+type EnrollmentStatus int
+
+// String returns a human-readable (i.e. English-speaker readable) version of the enrollment status.
+func (e EnrollmentStatus) String() string {
+	names := map[EnrollmentStatus]string{
+		EnrollmentStatusEnrolled: "Enrolled",
+		EnrollmentStatusDropped: "Dropped",
+		EnrollmentStatusWaitlisted: "Waitlisted",
+	}
+	if name, ok := names[e]; ok {
+		return name
+	} else {
+		return "Other"
+	}
+}
+
+const (
+	EnrollmentStatusEnrolled EnrollmentStatus = iota
+	EnrollmentStatusDropped
+	EnrollmentStatusWaitlisted
+	EnrollmentStatusOther
+)
+
 // A TimeOfDay represents a time of day as a number of minutes since 0:00.
 type TimeOfDay int
 
@@ -83,9 +107,8 @@ type Course struct {
 	Name       string
 	Department string
 	Number     string
-	Enrolled   bool
+	Status     EnrollmentStatus
 	Units      float64
-	Graded     bool
 	Components []Component
 }
 
@@ -129,16 +152,25 @@ func ParseCourses(page io.Reader) ([]Course, error) {
 		}
 		courseInfoMap := courseInfoEntries[0]
 
+		// TODO: figure out how to use the "Graded" field in a universal way.
+
 		if unitsStr, ok := courseInfoMap["Units"]; ok {
 			course.Units, _ = strconv.ParseFloat(unitsStr, -1)
 		}
 
-		// TODO: figure out other Status values.
-		if courseInfoMap["Status"] == "Enrolled" {
-			course.Enrolled = true
+		// TODO: verify these Status strings and make sure there are no others.
+		switch courseInfoMap["Status"] {
+		case "Enrolled":
+			course.Status = EnrollmentStatusEnrolled
+		case "Dropped":
+			course.Status = EnrollmentStatusDropped
+		case "Waitlisted":
+			course.Status = EnrollmentStatusWaitlisted
+		default:
+			course.Status = EnrollmentStatusOther
 		}
 
-		// TODO: parse the components.
+		// TODO: this.
 		// componentInfoTable := infoTables[1]
 
 		result = append(result, course)
