@@ -3,24 +3,121 @@ package bsc
 import (
 	"errors"
 	"io"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/yhat/scrape"
 	"golang.org/x/net/html"
 )
 
-// parseCurrentSchedule parses the courses from the schedule list view page.
-func parseCurrentSchedule(page io.Reader) ([]Course, error) {
-	nodes, err := html.ParseFragment(page, nil)
-	if err != nil {
-		return nil, err
+// fetchExtraScheduleInfo gets more information about each component.
+//
+// The rootNode argument should be the parsed schedule list view.
+func fetchExtraScheduleInfo(client *http.Client, courses []Course, rootNode *html.Node) error {
+	psForm, ok := scrape.Find(rootNode, scrape.ByClass("PSForm"))
+	if !ok {
+		return errors.New("could not find PSForm")
 	}
-	if len(nodes) != 1 {
-		return nil, errors.New("invalid number of root elements")
+	icsid, ok := scrape.Find(psForm, scrape.ById("ICSID"))
+	if !ok {
+		return errors.New("could not find ICSID")
 	}
 
-	courseTables := scrape.FindAll(nodes[0], scrape.ByClass("PSGROUPBOXWBO"))
+	formAction := getNodeAttribute(psForm, "action")
+	sid := getNodeAttribute(icsid, "value")
+
+	wg := sync.WaitGroup{}
+
+	var err error
+	var errLock sync.Mutex
+
+	sectionIndex := 0
+	for _, course := range courses {
+		for componentIndex := range course.Components {
+			component := &course.Components[componentIndex]
+			wg.Add(1)
+			go func(setCourseOpen bool, index int, comp *Component) {
+				defer wg.Done()
+
+				postData := generateClassDetailForm(sid, index)
+				res, reqError := client.PostForm(formAction, postData)
+				if res != nil {
+					defer res.Body.Close()
+				}
+				if reqError != nil {
+					errLock.Lock()
+					err = reqError
+					errLock.Unlock()
+					return
+				}
+
+				courseOpen, parseErr := parseExtraComponentInfo(res.Body, component)
+				if parseErr != nil {
+					errLock.Lock()
+					err = parseErr
+					errLock.Unlock()
+					return
+				}
+
+				if setCourseOpen {
+					course.Open = &courseOpen
+				}
+			}(componentIndex == 0, sectionIndex, component)
+			sectionIndex++
+		}
+	}
+
+	wg.Wait()
+	return err
+}
+
+// generateClassDetailForm generates the POST values for extended component information.
+func generateClassDetailForm(icsid string, sectionIndex int) url.Values {
+	postData := url.Values{}
+	for _, f := range []string{"ICFocus", "ICFind", "ICAddCount", "ICAPPCLSDATA"} {
+		postData.Add(f, "")
+	}
+
+	// TODO: compress this code using loops and such.
+
+	postData.Add("ICAJAX", "1")
+	postData.Add("ICNAVTYPEDROPDOWN", "0")
+	postData.Add("ICType", "Panel")
+	postData.Add("ICElementNum", "0")
+	postData.Add("ICStateNum", "4")
+	postData.Add("ICAction", "MTG_SECTION$"+strconv.Itoa(sectionIndex))
+	postData.Add("ICXPos", "0")
+	postData.Add("ICYPos", "179")
+	postData.Add("ResponsetoDiffFrame", "-1")
+	postData.Add("TargetFrameName", "None")
+	postData.Add("FacetPath", "None")
+	postData.Add("ICSaveWarningFilter", "0")
+	postData.Add("ICChanged", "-1")
+	postData.Add("ICResubmit", "0")
+	postData.Add("ICSID", icsid)
+	postData.Add("ICActionPrompt", "false")
+	postData.Add("DERIVED_SSTSNAV_SSTS_MAIN_GOTO$7$", "9999")
+	postData.Add("DERIVED_REGFRM1_SSR_SCHED_FORMAT$258$", "L")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_E$chk", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_E", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_D$chk", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_D", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_W$chk", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_W", "Y")
+	postData.Add("DERIVED_SSTSNAV_SSTS_MAIN_GOTO$8$", "9999")
+
+	return postData
+}
+
+// parseCurrentSchedule parses the courses from the schedule list view page.
+//
+// If fetchMoreInfo is true, this will perform a request for each component to find out information
+// about it.
+func parseCurrentSchedule(rootNode *html.Node) ([]Course, error) {
+	courseTables := scrape.FindAll(rootNode, scrape.ByClass("PSGROUPBOXWBO"))
 	result := make([]Course, 0, len(courseTables))
 	for _, classTable := range courseTables {
 		titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER"))
@@ -59,7 +156,6 @@ func parseCurrentSchedule(page io.Reader) ([]Course, error) {
 
 		result = append(result, course)
 	}
-
 	return result, nil
 }
 
@@ -124,4 +220,19 @@ func parseCourseInfoTable(table *html.Node) (course Course, err error) {
 	course.Status = ParseEnrollmentStatus(infoMap["Status"])
 
 	return
+}
+
+// parseExtraComponentInfo parses the "Class Detail" page for a component.
+func parseExtraComponentInfo(body io.Reader, component *Component) (courseOpen bool, err error) {
+	nodes, err := html.ParseFragment(body, nil)
+	if err != nil {
+		return
+	}
+	if len(nodes) != 1 {
+		return false, errors.New("invalid number of root elements")
+	}
+
+	// TODO: parse the component info here!
+
+	return false, errors.New("not yet implemented")
 }

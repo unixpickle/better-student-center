@@ -16,6 +16,10 @@ type Course struct {
 	Status     EnrollmentStatus
 	Units      float64
 	Components []Component
+
+	// Open indicates the status (i.e. "openness") of this course. If this is nil, it means that the
+	// status of this course is unknown.
+	Open *bool
 }
 
 // A Component is one component of a course. Components have meeting times, locations, and
@@ -29,6 +33,10 @@ type Component struct {
 	Room        string
 	StartDate   Date
 	EndDate     Date
+
+	// CapacityInfo indicates the space available in the class. It may be nil if it was not
+	// requested explicitly.
+	CapacityInfo *CapacityInfo
 }
 
 // A ComponentType represents the type of a Component. This may be, for example,
@@ -296,4 +304,13 @@ func (d Date) String() string {
 		monthStr = "0" + monthStr
 	}
 	return monthStr + "/" + dayStr + "/" + yearStr
+}
+
+// CapacityInfo stores various information about space available in a class.
+type CapacityInfo struct {
+	Capacity         int
+	EnrollmentTotal  int
+	AvailableSeats   int
+	WaitListCapacity int
+	WaitListTotal    int
 }

@@ -6,6 +6,8 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"sync"
+
+	"golang.org/x/net/html"
 )
 
 var redirectionRejectedError = errors.New("redirect occurred")
@@ -43,12 +45,34 @@ func (c *Client) Authenticate() error {
 }
 
 // FetchCurrentSchedule downloads the user's current schedule.
-func (c *Client) FetchCurrentSchedule() ([]Course, error) {
+//
+// If fetchMoreInfo is true, the components of each course will have extra information.
+func (c *Client) FetchCurrentSchedule(fetchMoreInfo bool) ([]Course, error) {
 	if resp, err := c.RequestPage(scheduleListViewPath); err != nil {
 		return nil, err
 	} else {
 		defer resp.Body.Close()
-		return parseCurrentSchedule(resp.Body)
+
+		nodes, err := html.ParseFragment(resp.Body, nil)
+		if err != nil {
+			return nil, err
+		}
+		if len(nodes) != 1 {
+			return nil, errors.New("invalid number of root elements")
+		}
+
+		courses, err := parseCurrentSchedule(nodes[0])
+		if err != nil {
+			return nil, err
+		}
+		if fetchMoreInfo {
+			c.authLock.RLock()
+			defer c.authLock.RUnlock()
+			if err := fetchExtraScheduleInfo(&c.client, courses, nodes[0]); err != nil {
+				return nil, err
+			}
+		}
+		return courses, nil
 	}
 }
 

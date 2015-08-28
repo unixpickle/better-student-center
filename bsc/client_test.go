@@ -33,7 +33,7 @@ func TestFetchCurrentSchedule(t *testing.T) {
 	if err := c.Authenticate(); err != nil {
 		t.Fatal("could not authenticate:", err)
 	}
-	if courses, err := c.FetchCurrentSchedule(); err != nil {
+	if courses, err := c.FetchCurrentSchedule(false); err != nil {
 		t.Error("failed to fetch courses:", err)
 	} else if courses == nil || len(courses) == 0 {
 		t.Error("course list is empty or nil")
