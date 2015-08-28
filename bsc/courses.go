@@ -34,9 +34,9 @@ type Component struct {
 	StartDate   Date
 	EndDate     Date
 
-	// CapacityInfo indicates the space available in the class. It may be nil if it was not
+	// ClassAvailability indicates the space available in the class. It may be nil if it was not
 	// requested explicitly.
-	CapacityInfo *CapacityInfo
+	ClassAvailability *ClassAvailability
 }
 
 // A ComponentType represents the type of a Component. This may be, for example,
@@ -306,8 +306,8 @@ func (d Date) String() string {
 	return monthStr + "/" + dayStr + "/" + yearStr
 }
 
-// CapacityInfo stores various information about space available in a class.
-type CapacityInfo struct {
+// ClassAvailability stores various information about space available in a class.
+type ClassAvailability struct {
 	Capacity         int
 	EnrollmentTotal  int
 	AvailableSeats   int

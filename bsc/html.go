@@ -34,6 +34,18 @@ func nodeInnerText(node *html.Node) string {
 	return res.String()
 }
 
+// nodesWithAlignAttribute filters a list of nodes and returns only those with a non-empty "align"
+// attribute.
+func nodesWithAlignAttribute(nodes []*html.Node) []*html.Node {
+	res := make([]*html.Node, 0, len(nodes))
+	for _, node := range nodes {
+		if getNodeAttribute(node, "align") != "" {
+			res = append(res, node)
+		}
+	}
+	return res
+}
+
 // tableEntriesAsMaps takes a <table> and parses its headers and row entries.
 // Often times, an HTML table has one row of headers followed by several rows of data. This method
 // uses the headers as map keys. It returns an array of map objects representing the rows of the

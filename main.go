@@ -19,6 +19,6 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("Authenticated")
-	courses, err := c.FetchCurrentSchedule(false)
+	courses, err := c.FetchCurrentSchedule(true)
 	fmt.Println(courses, err)
 }

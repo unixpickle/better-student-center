@@ -2,6 +2,7 @@ package bsc
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/yhat/scrape"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 // fetchExtraScheduleInfo gets more information about each component.
@@ -56,6 +58,7 @@ func fetchExtraScheduleInfo(client *http.Client, courses []Course, rootNode *htm
 
 				courseOpen, parseErr := parseExtraComponentInfo(res.Body, component)
 				if parseErr != nil {
+					fmt.Println("guy failed,", parseErr)
 					errLock.Lock()
 					err = parseErr
 					errLock.Unlock()
@@ -232,7 +235,61 @@ func parseExtraComponentInfo(body io.Reader, component *Component) (courseOpen b
 		return false, errors.New("invalid number of root elements")
 	}
 
-	// TODO: parse the component info here!
+	openStatus, ok := scrape.Find(nodes[0], scrape.ById("SSR_CLS_DTL_WRK_SSR_DESCRSHORT"))
+	if !ok {
+		fmt.Println("failed for", component)
+		return false, errors.New("open status not found")
+	}
+	courseOpen = (nodeInnerText(openStatus) == "Open")
 
-	return false, errors.New("not yet implemented")
+	availTable, ok := scrape.Find(nodes[0], scrape.ById("ACE_SSR_CLS_DTL_WRK_GROUP3"))
+	if !ok {
+		return courseOpen, errors.New("could not find availability info")
+	}
+
+	rows := scrape.FindAll(availTable, scrape.ByTag(atom.Tr))
+	if len(rows) != 7 {
+		return courseOpen, errors.New("invalid number of rows in availability table")
+	}
+
+	var availability ClassAvailability
+
+	cols := nodesWithAlignAttribute(scrape.FindAll(rows[2], scrape.ByTag(atom.Td)))
+	if len(cols) != 2 {
+		return courseOpen, errors.New("expected 2 aligned columns in row 2")
+	}
+	availability.Capacity, err = strconv.Atoi(strings.TrimSpace(nodeInnerText(cols[0])))
+	if err != nil {
+		return
+	}
+	availability.WaitListCapacity, err = strconv.Atoi(strings.TrimSpace(nodeInnerText(cols[1])))
+	if err != nil {
+		return
+	}
+
+	cols = nodesWithAlignAttribute(scrape.FindAll(rows[4], scrape.ByTag(atom.Td)))
+	if len(cols) != 2 {
+		return courseOpen, errors.New("expected 2 aligned columns in row 4")
+	}
+	availability.EnrollmentTotal, err = strconv.Atoi(strings.TrimSpace(nodeInnerText(cols[0])))
+	if err != nil {
+		return
+	}
+	availability.WaitListTotal, err = strconv.Atoi(strings.TrimSpace(nodeInnerText(cols[1])))
+	if err != nil {
+		return
+	}
+
+	cols = nodesWithAlignAttribute(scrape.FindAll(rows[6], scrape.ByTag(atom.Td)))
+	if len(cols) != 1 {
+		return courseOpen, errors.New("expected 1 aligned column in row 6")
+	}
+	availability.AvailableSeats, err = strconv.Atoi(strings.TrimSpace(nodeInnerText(cols[0])))
+	if err != nil {
+		return
+	}
+
+	component.ClassAvailability = &availability
+
+	return
 }
