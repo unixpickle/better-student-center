@@ -2,13 +2,11 @@ package bsc
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/yhat/scrape"
 	"golang.org/x/net/html"
@@ -31,50 +29,81 @@ func fetchExtraScheduleInfo(client *http.Client, courses []Course, rootNode *htm
 	formAction := getNodeAttribute(psForm, "action")
 	sid := getNodeAttribute(icsid, "value")
 
-	wg := sync.WaitGroup{}
-
-	var err error
-	var errLock sync.Mutex
-
+	// TODO: figure out if there's a way to make this more robust or to load it lazily.
 	sectionIndex := 0
-	for _, course := range courses {
+	for courseIndex := range courses {
+		course := &courses[courseIndex]
 		for componentIndex := range course.Components {
 			component := &course.Components[componentIndex]
-			wg.Add(1)
-			go func(setCourseOpen bool, index int, comp *Component) {
-				defer wg.Done()
 
-				postData := generateClassDetailForm(sid, index)
-				res, reqError := client.PostForm(formAction, postData)
-				if res != nil {
-					defer res.Body.Close()
-				}
-				if reqError != nil {
-					errLock.Lock()
-					err = reqError
-					errLock.Unlock()
-					return
-				}
+			postData := generateClassDetailForm(sid, sectionIndex)
+			res, reqErr := client.PostForm(formAction, postData)
+			if res != nil {
+				defer res.Body.Close()
+			}
+			if reqErr != nil {
+				return reqErr
+			}
 
-				courseOpen, parseErr := parseExtraComponentInfo(res.Body, component)
-				if parseErr != nil {
-					fmt.Println("guy failed,", parseErr)
-					errLock.Lock()
-					err = parseErr
-					errLock.Unlock()
-					return
-				}
+			courseOpen, parseErr := parseExtraComponentInfo(res.Body, component)
+			if parseErr != nil {
+				return parseErr
+			}
+			course.Open = &courseOpen
 
-				if setCourseOpen {
-					course.Open = &courseOpen
-				}
-			}(componentIndex == 0, sectionIndex, component)
+			postData = generateClassDetailBackForm(sid, sectionIndex)
+			res, reqErr = client.PostForm(formAction, postData)
+			if res != nil {
+				defer res.Body.Close()
+			}
+			if reqErr != nil {
+				return reqErr
+			}
+
 			sectionIndex++
 		}
 	}
 
-	wg.Wait()
-	return err
+	return nil
+}
+
+// generateClassDetailBackForm generates the POST values needed for requests between class detail
+// requests.
+func generateClassDetailBackForm(icsid string, sectionIndex int) url.Values {
+	postData := url.Values{}
+	for _, f := range []string{"ICFocus", "ICFind", "ICAddCount", "ICAPPCLSDATA"} {
+		postData.Add(f, "")
+	}
+
+	// TODO: compress this code using loops and such.
+
+	postData.Add("ICAJAX", "1")
+	postData.Add("ICNAVTYPEDROPDOWN", "0")
+	postData.Add("ICType", "Panel")
+	postData.Add("ICElementNum", "0")
+	postData.Add("ICStateNum", strconv.Itoa(sectionIndex*2+1))
+	postData.Add("ICAction", "CLASS_SRCH_WRK2_SSR_PB_CLOSE")
+	postData.Add("ICXPos", "0")
+	postData.Add("ICYPos", "0")
+	postData.Add("ResponsetoDiffFrame", "-1")
+	postData.Add("TargetFrameName", "None")
+	postData.Add("FacetPath", "None")
+	postData.Add("ICSaveWarningFilter", "0")
+	postData.Add("ICChanged", "-1")
+	postData.Add("ICResubmit", "0")
+	postData.Add("ICSID", icsid)
+	postData.Add("ICActionPrompt", "false")
+	postData.Add("DERIVED_SSTSNAV_SSTS_MAIN_GOTO$7$", "9999")
+	postData.Add("DERIVED_REGFRM1_SSR_SCHED_FORMAT$258$", "L")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_E$chk", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_E", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_D$chk", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_D", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_W$chk", "Y")
+	postData.Add("DERIVED_REGFRM1_SA_STUDYLIST_W", "Y")
+	postData.Add("DERIVED_SSTSNAV_SSTS_MAIN_GOTO$8$", "9999")
+
+	return postData
 }
 
 // generateClassDetailForm generates the POST values for extended component information.
@@ -90,10 +119,10 @@ func generateClassDetailForm(icsid string, sectionIndex int) url.Values {
 	postData.Add("ICNAVTYPEDROPDOWN", "0")
 	postData.Add("ICType", "Panel")
 	postData.Add("ICElementNum", "0")
-	postData.Add("ICStateNum", "4")
+	postData.Add("ICStateNum", strconv.Itoa(sectionIndex*2))
 	postData.Add("ICAction", "MTG_SECTION$"+strconv.Itoa(sectionIndex))
 	postData.Add("ICXPos", "0")
-	postData.Add("ICYPos", "179")
+	postData.Add("ICYPos", "0")
 	postData.Add("ResponsetoDiffFrame", "-1")
 	postData.Add("TargetFrameName", "None")
 	postData.Add("FacetPath", "None")
@@ -237,7 +266,6 @@ func parseExtraComponentInfo(body io.Reader, component *Component) (courseOpen b
 
 	openStatus, ok := scrape.Find(nodes[0], scrape.ById("SSR_CLS_DTL_WRK_SSR_DESCRSHORT"))
 	if !ok {
-		fmt.Println("failed for", component)
 		return false, errors.New("open status not found")
 	}
 	courseOpen = (nodeInnerText(openStatus) == "Open")
