@@ -148,10 +148,12 @@ func generateClassDetailForm(icsid string, sectionIndex int) url.Values {
 //
 // If fetchMoreInfo is true, this will perform a request for each component to find out information
 // about it.
-func parseCurrentSchedule(rootNode *html.Node) ([]Course, error) {
+func parseSchedule(rootNode *html.Node) ([]Course, error) {
 	courseTables := scrape.FindAll(rootNode, scrape.ByClass("PSGROUPBOXWBO"))
 	result := make([]Course, 0, len(courseTables))
 	for _, classTable := range courseTables {
+		println("found course")
+
 		titleElement, ok := scrape.Find(classTable, scrape.ByClass("PAGROUPDIVIDER"))
 		if !ok {
 			// This will occur at least once, since the filter options are a PSGROUPBOXWBO.
