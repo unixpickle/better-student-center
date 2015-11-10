@@ -1,6 +1,7 @@
 package bsc
 
 import (
+	"crypto/tls"
 	"errors"
 	"net/http"
 	"net/http/cookiejar"
@@ -30,7 +31,35 @@ type Client struct {
 // UniversityEngine.
 func NewClient(username, password string, uni UniversityEngine) *Client {
 	jar, _ := cookiejar.New(nil)
-	httpClient := http.Client{Jar: jar, CheckRedirect: rejectRedirect}
+
+	tlsConfig := tls.Config{
+		CipherSuites: []uint16{
+			tls.TLS_RSA_WITH_RC4_128_SHA,
+			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		},
+	}
+	transport := &http.Transport{
+		TLSClientConfig: &tlsConfig,
+	}
+
+	httpClient := http.Client{
+		Jar: jar,
+		CheckRedirect: rejectRedirect,
+		Transport: transport,
+	}
 	return &Client{sync.RWMutex{}, httpClient, username, password, uni}
 }
 
