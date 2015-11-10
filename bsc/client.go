@@ -12,8 +12,7 @@ import (
 )
 
 var redirectionRejectedError = errors.New("redirect occurred")
-var scheduleListViewPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL" +
-	"?Page=SSR_SSENRL_LIST"
+var scheduleListViewPath string = "/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES.SSR_SSENRL_LIST.GBL?Page=SSR_SSENRL_LIST"
 
 // A Client makes requests to a University's Student Center.
 type Client struct {
@@ -76,11 +75,18 @@ func (c *Client) Authenticate() error {
 // FetchCurrentSchedule downloads the user's current schedule.
 //
 // If fetchMoreInfo is true, the components of each course will have extra information.
-func (c *Client) FetchCurrentSchedule(fetchMoreInfo bool) ([]Course, error) {
-	if resp, err := c.RequestPage(scheduleListViewPath); err != nil {
+func (c *Client) FetchSchedule(fetchMoreInfo bool) ([]Course, error) {
+	// TODO: GET page, then check if a <form> exists, then extract the name of the radio buttons?
+	postData := url.Values{}
+	postData.Add("SSR_DUMMY_RECV1$sels$0", "0")
+
+	if resp, err := c.RequestPagePost(scheduleListViewPath, postData); err != nil {
 		return nil, err
 	} else {
 		defer resp.Body.Close()
+
+		contents, err := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(contents))
 
 		nodes, err := html.ParseFragment(resp.Body, nil)
 		if err != nil {
@@ -90,7 +96,7 @@ func (c *Client) FetchCurrentSchedule(fetchMoreInfo bool) ([]Course, error) {
 			return nil, errors.New("invalid number of root elements")
 		}
 
-		courses, err := parseCurrentSchedule(nodes[0])
+		courses, err := parseSchedule(nodes[0])
 		if err != nil {
 			return nil, err
 		}
@@ -112,6 +118,36 @@ func (c *Client) RequestPage(page string) (*http.Response, error) {
 	requestURL := c.uni.RootURL() + page
 	c.authLock.RLock()
 	resp, err := c.client.Get(requestURL)
+	c.authLock.RUnlock()
+	if err != nil && !isRedirectError(err) {
+		return nil, err
+	} else if err == nil {
+		return resp, nil
+	}
+
+	resp.Body.Close()
+
+	if err := c.Authenticate(); err != nil {
+		return nil, err
+	}
+
+	c.authLock.RLock()
+	resp, err = c.client.Get(requestURL)
+	c.authLock.RUnlock()
+	if err != nil {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return nil, err
+	} else {
+		return resp, nil
+	}
+}
+
+func (c *Client) RequestPagePost(page string, postData url.Values) (*http.Response, error) {
+	requestURL := c.uni.RootURL() + page
+	c.authLock.RLock()
+	resp, err := c.client.PostForm(requestURL, postData)
 	c.authLock.RUnlock()
 	if err != nil && !isRedirectError(err) {
 		return nil, err
